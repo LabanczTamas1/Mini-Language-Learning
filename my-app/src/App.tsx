@@ -1,26 +1,16 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import AddLanguage from './AddLanguage';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+const App = () => {
+    const userId = 1; // Example user ID, you can get this dynamically after user login
+
+    return (
+        <div>
+            <h1>Language Learning App</h1>
+            <AddLanguage userId={userId} />
+            {/* Add other components as needed */}
+        </div>
+    );
+};
 
 export default App;
