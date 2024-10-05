@@ -134,19 +134,31 @@ app.post('/languages/:userId', authenticate, async (req, res) => {
     const { userId } = req.params;
     const { languageId, learningLanguage, translationLanguage } = req.body;
 
+    // Log to verify values received from the frontend
+    console.log('Received learningLanguage:', learningLanguage);
+    console.log('Received translationLanguage:', translationLanguage);
+
     // Validate that both languages are provided
     if (!learningLanguage || !translationLanguage) {
-        return res.status(400).json({ error: 'Learning and translation languages are required.' });
+        return res.status(400).json({ error: 'Both learning and translation languages are required.' });
     }
 
     try {
         const langIdStr = String(languageId); // Convert languageId to string if it's not
-        // Store the language pair using Redis hash (HSET)
-        await client.hSet(`languages:${userId}`,
-            `language_pair:${langIdStr}:learning_language`, learningLanguage,
-            `language_pair:${langIdStr}:translation_language`, translationLanguage
-        );
-        // Add the languageId to the set of languages for this user
+
+        // Create a JSON object for the language pair
+        const languageData = JSON.stringify({
+            learningLanguage,
+            translationLanguage
+        });
+
+        // Log the object you're about to save to Redis
+        console.log('Saving to Redis:', languageData);
+
+        // Store the JSON object in a single field in Redis
+        await client.hSet(`languages:${userId}`, langIdStr, languageData);
+
+        // Add the languageId to the set of language_ids for this user
         await client.sAdd(`language_ids:${userId}`, langIdStr);
 
         res.status(200).send({ message: 'Language pair added successfully' });
@@ -156,27 +168,59 @@ app.post('/languages/:userId', authenticate, async (req, res) => {
     }
 });
 
+
+
+
+
+
 // Fetch all languages for a specific user (protected route)
-// Fetch all languages for a specific user
 app.get('/languages/:userId', authenticate, async (req, res) => {
     const { userId } = req.params;
 
     try {
+        // Fetch all language IDs for the user
         const languageIds = await client.sMembers(`language_ids:${userId}`);
         if (languageIds.length === 0) {
-            return res.status(200).json([]); 
+            return res.status(200).json([]); // Return an empty array if no languages exist
         }
 
+        // Fetch all language pairs as JSON objects from Redis
         const languages = await Promise.all(languageIds.map(async (languageId) => {
-            const learningLanguage = await client.hGet(`languages:${userId}`, `language_pair:${languageId}:learning_language`);
-            const translationLanguage = await client.hGet(`languages:${userId}`, `language_pair:${languageId}:translation_language`);
-            
-            console.log(`Fetched languageId: ${languageId}, learningLanguage: ${learningLanguage}, translationLanguage: ${translationLanguage}`);
+            // Fetch the JSON string stored in Redis for this languageId
+            const languageData = await client.hGet(`languages:${userId}`, languageId);
+
+            // Log the fetched data
+            console.log(`Fetched data for languageId: ${languageId} -> ${languageData}`);
+
+            // Check if the data is valid before attempting to parse it
+            if (!languageData) {
+                console.error(`No data found for languageId: ${languageId}`);
+                return {
+                    languageId,
+                    learningLanguage: null,
+                    translationLanguage: null
+                };
+            }
+
+            // Try to parse the JSON string
+            let parsedData;
+            try {
+                parsedData = JSON.parse(languageData);
+            } catch (error) {
+                console.error(`Failed to parse JSON for languageId: ${languageId}`, error);
+                return {
+                    languageId,
+                    learningLanguage: null,
+                    translationLanguage: null
+                };
+            }
+
+            const { learningLanguage, translationLanguage } = parsedData || {};
 
             return {
                 languageId,
-                learningLanguage,
-                translationLanguage
+                learningLanguage: learningLanguage || null,
+                translationLanguage: translationLanguage || null
             };
         }));
 
@@ -186,6 +230,8 @@ app.get('/languages/:userId', authenticate, async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch languages.' });
     }
 });
+
+
 
 
 
