@@ -3,22 +3,26 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const redis = require('redis');
 const cors = require('cors');
-require('dotenv').config(); // For loading environment variables
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
+require('dotenv').config(); // Load environment variables
 
-// Initialize Express app first
 const app = express();
 
 // Use CORS middleware
 app.use(cors({
-    origin: 'http://localhost:3001'  // Allow requests from this origin
+    origin: 'http://localhost:3001'  // Allow requests from this origin (your frontend)
 }));
 
 // Body parser middleware
 app.use(bodyParser.json());
 
+// JWT secret key (set in environment variables for security)
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+
 // Create Redis Client
 const client = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379' // Use environment variable or default to localhost
+    url: process.env.REDIS_URL || 'redis://localhost:6380' // Use environment variable or default to localhost
 });
 
 client.on('error', (err) => {
@@ -39,160 +43,151 @@ client.on('connect', () => {
     }
 })();
 
-// Create a new user
-app.post('/register', async (req, res) => {
-    const { username, email, password } = req.body;
+// ------------------ USER AUTHENTICATION ------------------ //
 
-    if (!username || !email || !password) {
-        return res.status(400).json({ error: 'Username, email, and password are required.' });
+// User registration route
+app.post('/register', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const userId = new Date().getTime(); // Simplified user ID (use a better approach in production)
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     try {
-        await client.hSet(`user:${userId}`, {
-            username,
-            email,
-            password_hash: hashedPassword,
-        });
-        res.status(201).send({ userId, username, email });
+        // Check if user already exists
+        const userExists = await client.hGet('users', email);
+        if (userExists) {
+            return res.status(400).json({ error: 'User already exists.' });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Generate a unique user ID
+        const userId = uuidv4();
+
+        // Store user in Redis
+        await client.hSet('users', email, JSON.stringify({ userId, hashedPassword }));
+
+        // Respond with the user ID
+        res.status(201).json({ userId });
     } catch (error) {
-        console.error('Error registering user:', error); // Log the error for debugging
+        console.error('Error registering user:', error.message);
         res.status(500).json({ error: 'Failed to register user.' });
     }
 });
 
+// User login route
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
 
-// Add a language
-app.post('/languages/:userId', async (req, res) => {
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    try {
+        // Fetch user from Redis
+        const userData = await client.hGet('users', email);
+        if (!userData) {
+            return res.status(400).json({ error: 'Invalid email or password.' });
+        }
+
+        const { userId, hashedPassword } = JSON.parse(userData);
+
+        // Compare the provided password with the hashed password
+        const passwordMatch = await bcrypt.compare(password, hashedPassword);
+        if (!passwordMatch) {
+            return res.status(400).json({ error: 'Invalid email or password.' });
+        }
+
+        // Generate a JWT token
+        const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '1h' });
+
+        // Respond with userId and token
+        res.status(200).json({ userId, token });
+    } catch (error) {
+        console.error('Error logging in:', error.message);
+        res.status(500).json({ error: 'Failed to log in.' });
+    }
+});
+
+// Middleware to authenticate JWT tokens
+function authenticate(req, res, next) {
+    const token = req.headers['authorization'];
+    if (!token) {
+        return res.status(401).json({ error: 'Access denied, no token provided.' });
+    }
+
+    try {
+        const decoded = jwt.verify(token.split(' ')[1], JWT_SECRET);
+        req.user = decoded; // Add the decoded user info to the request
+        next();
+    } catch (error) {
+        res.status(401).json({ error: 'Invalid token.' });
+    }
+}
+
+// ------------------ LANGUAGE ROUTES (PROTECTED) ------------------ //
+
+// Add a language (protected route)
+app.post('/languages/:userId', authenticate, async (req, res) => {
     const { userId } = req.params;
     const { languageId, learningLanguage, translationLanguage } = req.body;
 
+    // Validate that both languages are provided
     if (!learningLanguage || !translationLanguage) {
         return res.status(400).json({ error: 'Learning and translation languages are required.' });
     }
 
     try {
-        console.log('Attempting to add language in Redis...');
-        
-        const langIdStr = String(languageId);
-
-        // Check if the key `languages:${userId}` exists and ensure it is a hash
-        const keyType = await client.type(`languages:${userId}`);
-        
-        // If the key is not a hash, delete it
-        if (keyType !== 'none' && keyType !== 'hash') {
-            console.log(`Key ${`languages:${userId}`} exists with type ${keyType}, deleting it...`);
-            await client.del(`languages:${userId}`);
-        }
-
-        // Add language details to hash
+        const langIdStr = String(languageId); // Convert languageId to string if it's not
+        // Store the language pair using Redis hash (HSET)
         await client.hSet(`languages:${userId}`,
             `language_pair:${langIdStr}:learning_language`, learningLanguage,
             `language_pair:${langIdStr}:translation_language`, translationLanguage
         );
+        // Add the languageId to the set of languages for this user
+        await client.sAdd(`language_ids:${userId}`, langIdStr);
 
-        // Add languageId to the set for this user
-        const setKey = `language_ids:${userId}`;
-        const setType = await client.type(setKey);
+        res.status(200).send({ message: 'Language pair added successfully' });
+    } catch (error) {
+        console.error('Error adding language pair:', error.message);
+        res.status(500).json({ error: 'Failed to add language pair.' });
+    }
+});
 
-        // Ensure the set exists correctly, delete if it's not a set
-        if (setType !== 'none' && setType !== 'set') {
-            console.log(`Key ${setKey} exists with type ${setType}, deleting it...`);
-            await client.del(setKey);
+// Fetch all languages for a specific user (protected route)
+// Fetch all languages for a specific user
+app.get('/languages/:userId', authenticate, async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const languageIds = await client.sMembers(`language_ids:${userId}`);
+        if (languageIds.length === 0) {
+            return res.status(200).json([]); 
         }
 
-        await client.sAdd(setKey, langIdStr); // Add languageId to the set
+        const languages = await Promise.all(languageIds.map(async (languageId) => {
+            const learningLanguage = await client.hGet(`languages:${userId}`, `language_pair:${languageId}:learning_language`);
+            const translationLanguage = await client.hGet(`languages:${userId}`, `language_pair:${languageId}:translation_language`);
+            
+            console.log(`Fetched languageId: ${languageId}, learningLanguage: ${learningLanguage}, translationLanguage: ${translationLanguage}`);
 
-        console.log('Language added successfully.');
-        res.status(200).send({ message: 'Language added' });
+            return {
+                languageId,
+                learningLanguage,
+                translationLanguage
+            };
+        }));
+
+        res.status(200).json(languages);
     } catch (error) {
-        console.error('Redis Error:', error);
-        res.status(500).json({ error: 'Failed to add language.' });
+        console.error('Error fetching languages:', error.message);
+        res.status(500).json({ error: 'Failed to fetch languages.' });
     }
 });
 
 
-
-
-// Add a new word/definition
-app.post('/definitions/:userId/:languageId', async (req, res) => {
-    const { userId, languageId } = req.params;
-    const { definitionId, word, translation } = req.body;
-
-    if (!word || !translation) {
-        return res.status(400).json({ error: 'Word and translation are required.' });
-    }
-
-    const timestamp = new Date().toISOString();
-
-    try {
-        await client.hSet(`definitions:${userId}:${languageId}:${definitionId}`, {
-            word,
-            translation,
-            time_added: timestamp,
-            status: 'learning',
-        });
-        await client.sAdd(`learning_state:${userId}:${languageId}:learning`, definitionId);
-        res.status(200).send({ message: 'Definition added' });
-    } catch (error) {
-        console.error('Error adding definition:', error); // Log the error
-        res.status(500).json({ error: 'Failed to add definition.' });
-    }
-});
-
-// Set reminder for a word
-app.post('/reminders/:userId/:definitionId', async (req, res) => {
-    const { userId, definitionId } = req.params;
-    const { reminderTime } = req.body; // Expecting a timestamp
-
-    if (!reminderTime) {
-        return res.status(400).json({ error: 'Reminder time is required.' });
-    }
-
-    try {
-        await client.zAdd(`progress:${userId}`, {
-            score: reminderTime,
-            value: definitionId
-        });
-        await client.hSet(`reminders:${userId}:${definitionId}`, {
-            reminder_time: reminderTime,
-            reminder_status: 'active',
-        });
-        res.status(200).send({ message: 'Reminder set' });
-    } catch (error) {
-        console.error('Error setting reminder:', error); // Log the error
-        res.status(500).json({ error: 'Failed to set reminder.' });
-    }
-});
-
-// Update learning state (move a word to learned or missed)
-app.put('/learning_state/:userId/:languageId/:definitionId', async (req, res) => {
-    const { userId, languageId, definitionId } = req.params;
-    const { newStatus } = req.body; // Expecting "learned" or "missed"
-
-    if (!newStatus || (newStatus !== 'learned' && newStatus !== 'missed')) {
-        return res.status(400).json({ error: 'New status must be "learned" or "missed".' });
-    }
-
-    try {
-        // Remove from learning
-        await client.sRem(`learning_state:${userId}:${languageId}:learning`, definitionId);
-
-        // Add to new state
-        if (newStatus === 'learned') {
-            await client.sAdd(`learning_state:${userId}:${languageId}:learned`, definitionId);
-        } else if (newStatus === 'missed') {
-            await client.sAdd(`learning_state:${userId}:${languageId}:missed`, definitionId);
-        }
-
-        res.status(200).send({ message: `Definition marked as ${newStatus}` });
-    } catch (error) {
-        console.error('Error updating learning state:', error); // Log the error
-        res.status(500).json({ error: 'Failed to update learning state.' });
-    }
-});
 
 // Start server
 const PORT = process.env.PORT || 3000;

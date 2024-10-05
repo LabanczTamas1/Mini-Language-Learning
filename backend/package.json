@@ -6,7 +6,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
     "redis": "^4.7.0",
-    "redis-server": "^1.2.2"
+    "redis-server": "^1.2.2",
+    "uuid": "^10.0.0"
   }
 }
