@@ -1,58 +1,89 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import Register from './Register';
 import Login from './Login';
 import AddLanguage from './AddLanguage';
+import AddDefinition from './AddDefinition';
 
-const App = () => {
-  const [isLogin, setIsLogin] = useState<boolean>(true); // Toggle between login and register
-  const [userId, setUserId] = useState<string | null>(null); // Stores the user ID after registration or login
-  const [token, setToken] = useState<string | null>(null); // Stores token after login
-  const [userEmail, setUserEmail] = useState<string | null>(null); // Stores user email after login
+const App: React.FC = () => {
+  const [isLogin, setIsLogin] = useState<boolean>(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Handle successful registration (no token needed anymore)
+  // State to toggle between AddLanguage and AddDefinition
+  const [showAddLanguage, setShowAddLanguage] = useState<boolean>(true);
+  const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
+
   const handleRegisterSuccess = (id: string) => {
     setUserId(id);
   };
 
-  // Handle successful login
   const handleLoginSuccess = (id: string, authToken: string, email: string) => {
     setUserId(id);
     setToken(authToken);
-    setUserEmail(email); // Set the user email
-    localStorage.setItem('authToken', authToken); // Optionally store token in localStorage
+    setUserEmail(email);
+    localStorage.setItem('authToken', authToken); // Store token in localStorage
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setUserId(null);
+    setToken(null);
+    setUserEmail(null);
+    localStorage.removeItem('authToken'); // Clear the token from localStorage
+  };
+
+  // Handle navigation to AddDefinition page
+  const handleLanguageClick = (languageId: string) => {
+    setSelectedLanguageId(languageId);
+    setShowAddLanguage(false); // Hide AddLanguage when a language is clicked
+  };
+
+  // Handle going back to AddLanguage page
+  const handleBackClick = () => {
+    setShowAddLanguage(true); // Show AddLanguage
+    setSelectedLanguageId(null); // Reset selected language
   };
 
   return (
-    <div>
-      <h1>Language Learning App</h1>
+    <Router>
+      <div>
+        <h1>Language Learning App</h1>
 
-      {/* Check if user is not logged in */}
-      {!userId ? (
-        <div>
-          <h2>{isLogin ? 'Login' : 'Register'} to Continue</h2>
+        {!userId ? (
+          <div>
+            <h2>{isLogin ? 'Login' : 'Register'} to Continue</h2>
+            {isLogin ? (
+              <Login onLoginSuccess={handleLoginSuccess} />
+            ) : (
+              <Register onRegisterSuccess={handleRegisterSuccess} />
+            )}
+            <button onClick={() => setIsLogin(!isLogin)}>
+              {isLogin ? 'Switch to Register' : 'Switch to Login'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <h2>Welcome, {userEmail}!</h2>
+            <button onClick={handleLogout}>Logout</button> {/* Logout button */}
 
-          {/* Toggle between Login and Register components */}
-          {isLogin ? (
-            <Login onLoginSuccess={handleLoginSuccess} />
-          ) : (
-            <Register onRegisterSuccess={handleRegisterSuccess} />
-          )}
+            {/* Show AddLanguage or AddDefinition based on the state */}
+            {token && userId && showAddLanguage && (
+              <AddLanguage userId={userId} onLanguageClick={handleLanguageClick} />
+            )}
 
-          {/* Button to toggle between Login and Register */}
-          <button onClick={() => setIsLogin(!isLogin)}>
-            {isLogin ? 'Switch to Register' : 'Switch to Login'}
-          </button>
-        </div>
-      ) : (
-        <div>
-          <h2>Welcome, {userEmail}!</h2>
-          {/* Display AddLanguage component after login */}
-          {token && userId && (
-            <AddLanguage userId={userId} />
-          )}
-        </div>
-      )}
-    </div>
+            {/* Show AddDefinition only when a language is clicked */}
+            {token && userId && !showAddLanguage && selectedLanguageId && (
+              <div>
+                <button onClick={handleBackClick}>Back</button>
+                <AddDefinition languageId={selectedLanguageId} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Router>
   );
 };
 

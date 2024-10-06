@@ -1,18 +1,22 @@
-import React, { useState, FormEvent } from 'react'; // Closing parenthesis added
-import axios, { AxiosError } from 'axios';
-import Button from '@mui/material/Button';
+import React from 'react';
 import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
 
-const AddDefinition = () => {
+interface AddDefinitionProps {
+  languageId: string; // Receive the selected languageId as a prop
+}
+
+const AddDefinition: React.FC<AddDefinitionProps> = ({ languageId }) => {
   return (
-    <div>
-      <h2>Add a definition</h2>
-      <TextField id="filled-basic" label="Filled" variant="filled" />
-      <TextField id="filled-basic" label="Filled" variant="filled" />
-      <Button variant="contained">Add definition</Button>
+    <div style={{ padding: '20px' }}>
+      <h2>Add a Definition for Language {languageId}</h2>
+      <TextField label="Word" variant="filled" fullWidth margin="normal" />
+      <TextField label="Definition" variant="filled" fullWidth margin="normal" multiline rows={4} />
+      <Button variant="contained" color="primary" fullWidth>
+        Add Definition
+      </Button>
     </div>
   );
 };
 
 export default AddDefinition;
-

@@ -5,7 +5,8 @@ import TextField from '@mui/material/TextField';
 import { Alert, Typography } from '@mui/material';
 
 interface AddLanguageProps {
-  userId: string; // The userId is passed down as a prop
+  userId: string;
+  onLanguageClick: (languageId: string) => void; // Prop to handle when a language is clicked
 }
 
 interface LanguageData {
@@ -14,70 +15,56 @@ interface LanguageData {
   translationLanguage: string;
 }
 
-const AddLanguage: React.FC<AddLanguageProps> = ({ userId }) => {
+const AddLanguage: React.FC<AddLanguageProps> = ({ userId, onLanguageClick }) => {
   const [learningLanguage, setLearningLanguage] = useState<string>('');
   const [translationLanguage, setTranslationLanguage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [languages, setLanguages] = useState<LanguageData[]>([]); // State to hold the list of languages
+  const [languages, setLanguages] = useState<LanguageData[]>([]);
 
-  // Fetch the list of languages associated with the user
   const fetchLanguages = async () => {
     try {
-      const token = localStorage.getItem('authToken'); // Retrieve token from localStorage
+      const token = localStorage.getItem('authToken');
       const response = await axios.get(`http://localhost:3000/languages/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`, // Pass token in Authorization header
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setLanguages(response.data); // Update the languages in the state
+      setLanguages(response.data);
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        console.error('Axios error:', error.response?.data || error.message);
         setErrorMessage('Failed to fetch languages. Please try again.');
       } else {
-        console.error('Unexpected error:', error);
         setErrorMessage('An unexpected error occurred. Please try again.');
       }
     }
   };
 
-  // Fetch languages when the component mounts
   useEffect(() => {
-    fetchLanguages(); // Fetch languages specific to the logged-in user
+    fetchLanguages();
   }, [userId]);
 
-  // Handle form submission to add a new language
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setErrorMessage(''); // Reset error message
+    setErrorMessage('');
 
     const languageData = {
-      languageId: String(new Date().getTime()), // Create a unique language ID based on timestamp
+      languageId: String(new Date().getTime()),
       learningLanguage,
       translationLanguage,
     };
 
     try {
-      const token = localStorage.getItem('authToken'); // Retrieve token from localStorage
-      const response = await axios.post(`http://localhost:3000/languages/${userId}`, languageData, {
-        headers: {
-          Authorization: `Bearer ${token}`, // Pass token in Authorization header
-        },
+      const token = localStorage.getItem('authToken');
+      await axios.post(`http://localhost:3000/languages/${userId}`, languageData, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Notify user and reset form inputs
       alert('Language added successfully');
-      setLearningLanguage(''); // Clear input fields after successful addition
+      setLearningLanguage('');
       setTranslationLanguage('');
-
-      // Update the languages list after successfully adding a new language
       setLanguages((prevLanguages) => [...prevLanguages, languageData]);
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        console.error('Axios error:', error.response?.data || error.message);
         setErrorMessage('Failed to add language. Please try again.');
       } else {
-        console.error('Unexpected error:', error);
         setErrorMessage('An unexpected error occurred. Please try again.');
       }
     }
@@ -85,11 +72,8 @@ const AddLanguage: React.FC<AddLanguageProps> = ({ userId }) => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <Typography variant="h4" gutterBottom>
-        Add Language
-      </Typography>
+      <Typography variant="h4" gutterBottom>Add Language</Typography>
 
-      {/* Language form */}
       <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
         <TextField
           label="Learning Language"
@@ -114,18 +98,17 @@ const AddLanguage: React.FC<AddLanguageProps> = ({ userId }) => {
         </Button>
       </form>
 
-      {/* Error message display */}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-      {/* Display list of languages */}
-      <Typography variant="h6" gutterBottom>
-        Your Languages:
-      </Typography>
+      <Typography variant="h6" gutterBottom>Your Languages:</Typography>
       {languages.length > 0 ? (
         <ul>
           {languages.map((language) => (
             <li key={language.languageId}>
-              <Button variant="outlined">
+              <Button
+                variant="outlined"
+                onClick={() => onLanguageClick(language.languageId)} // Call the parent prop to change view
+              >
                 {language.learningLanguage} → {language.translationLanguage}
               </Button>
             </li>
