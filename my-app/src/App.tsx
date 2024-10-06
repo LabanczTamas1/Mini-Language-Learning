@@ -4,6 +4,7 @@ import Register from './Register';
 import Login from './Login';
 import AddLanguage from './AddLanguage';
 import AddDefinition from './AddDefinition';
+import ReminderPopup from './ReminderPopup';
 
 const App: React.FC = () => {
   const [isLogin, setIsLogin] = useState<boolean>(true);
@@ -14,6 +15,10 @@ const App: React.FC = () => {
   // State to toggle between AddLanguage and AddDefinition
   const [showAddLanguage, setShowAddLanguage] = useState<boolean>(true);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
+
+  // Popup state
+  const [showPopup, setShowPopup] = useState<boolean>(false);
+  const [currentWord, setCurrentWord] = useState<string>('exampleWord'); // Default word to define
 
   const handleRegisterSuccess = (id: string) => {
     setUserId(id);
@@ -44,6 +49,23 @@ const App: React.FC = () => {
   const handleBackClick = () => {
     setShowAddLanguage(true); // Show AddLanguage
     setSelectedLanguageId(null); // Reset selected language
+  };
+
+  // Show the popup
+  const triggerPopup = (word: string) => {
+    setCurrentWord(word);
+    setShowPopup(true);
+  };
+
+  // Handle submitting the definition from the popup
+  const handlePopupSubmit = (definition: string) => {
+    console.log('Definition submitted:', definition);
+    setShowPopup(false); // Close the popup
+  };
+
+  // Handle closing the popup
+  const handlePopupClose = () => {
+    setShowPopup(false);
   };
 
   return (
@@ -77,8 +99,20 @@ const App: React.FC = () => {
             {token && userId && !showAddLanguage && selectedLanguageId && (
               <div>
                 <button onClick={handleBackClick}>Back</button>
-                <AddDefinition languageId={selectedLanguageId} />
+                <AddDefinition languageId={selectedLanguageId} userId={userId} />
               </div>
+            )}
+
+            {/* Example button to trigger the popup */}
+            <button onClick={() => triggerPopup('NewWord')}>Define a New Word</button>
+
+            {/* Render the ReminderPopup if showPopup is true */}
+            {showPopup && (
+              <ReminderPopup
+                word={currentWord}
+                onSubmit={handlePopupSubmit}
+                onClose={handlePopupClose}
+              />
             )}
           </div>
         )}

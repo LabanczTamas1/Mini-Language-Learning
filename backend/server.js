@@ -1,20 +1,23 @@
+// Import required modules
 const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const redis = require('redis');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
+const { v4: uuidv4 } = require('uuid');
+const cron = require('node-cron');
 require('dotenv').config(); // Load environment variables
 
+// Initialize Express app
 const app = express();
 
-// Use CORS middleware
+// Use CORS to allow requests from your frontend
 app.use(cors({
-    origin: 'http://localhost:3001'  // Allow requests from this origin (your frontend)
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001'
 }));
 
-// Body parser middleware
+// Use body parser to parse incoming JSON requests
 app.use(bodyParser.json());
 
 // JWT secret key (set in environment variables for security)
@@ -22,24 +25,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
 // Create Redis Client
 const client = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6380' // Use environment variable or default to localhost
+    url: process.env.REDIS_URL || 'redis://localhost:6380'
 });
 
+// Redis Client event listeners
 client.on('error', (err) => {
-    console.error('Redis Client Error', err);
+    console.error('Redis Client Error:', err);
 });
 
 client.on('connect', () => {
-    console.log('Redis client connected successfully');
+    console.log('Connected to Redis successfully');
 });
 
 // Connect to Redis
 (async () => {
     try {
         await client.connect();
-        console.log('Connected to Redis');
     } catch (err) {
-        console.error('Redis connection error', err);
+        console.error('Failed to connect to Redis:', err);
     }
 })();
 
@@ -66,13 +69,12 @@ app.post('/register', async (req, res) => {
         // Generate a unique user ID
         const userId = uuidv4();
 
-        // Store user in Redis
+        // Store user details in Redis
         await client.hSet('users', email, JSON.stringify({ userId, hashedPassword }));
 
-        // Respond with the user ID
         res.status(201).json({ userId });
     } catch (error) {
-        console.error('Error registering user:', error.message);
+        console.error('Error during registration:', error.message);
         res.status(500).json({ error: 'Failed to register user.' });
     }
 });
@@ -103,10 +105,9 @@ app.post('/login', async (req, res) => {
         // Generate a JWT token
         const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '1h' });
 
-        // Respond with userId and token
         res.status(200).json({ userId, token });
     } catch (error) {
-        console.error('Error logging in:', error.message);
+        console.error('Error during login:', error.message);
         res.status(500).json({ error: 'Failed to log in.' });
     }
 });
@@ -134,94 +135,42 @@ app.post('/languages/:userId', authenticate, async (req, res) => {
     const { userId } = req.params;
     const { languageId, learningLanguage, translationLanguage } = req.body;
 
-    // Log to verify values received from the frontend
-    console.log('Received learningLanguage:', learningLanguage);
-    console.log('Received translationLanguage:', translationLanguage);
-
-    // Validate that both languages are provided
     if (!learningLanguage || !translationLanguage) {
         return res.status(400).json({ error: 'Both learning and translation languages are required.' });
     }
 
     try {
-        const langIdStr = String(languageId); // Convert languageId to string if it's not
+        const langIdStr = String(languageId);
 
-        // Create a JSON object for the language pair
-        const languageData = JSON.stringify({
-            learningLanguage,
-            translationLanguage
-        });
+        const languageData = JSON.stringify({ learningLanguage, translationLanguage });
 
-        // Log the object you're about to save to Redis
-        console.log('Saving to Redis:', languageData);
-
-        // Store the JSON object in a single field in Redis
+        // Store language pair in Redis
         await client.hSet(`languages:${userId}`, langIdStr, languageData);
-
-        // Add the languageId to the set of language_ids for this user
         await client.sAdd(`language_ids:${userId}`, langIdStr);
 
-        res.status(200).send({ message: 'Language pair added successfully' });
+        res.status(200).json({ message: 'Language pair added successfully' });
     } catch (error) {
         console.error('Error adding language pair:', error.message);
         res.status(500).json({ error: 'Failed to add language pair.' });
     }
 });
 
-
-
-
-
-
 // Fetch all languages for a specific user (protected route)
 app.get('/languages/:userId', authenticate, async (req, res) => {
     const { userId } = req.params;
 
     try {
-        // Fetch all language IDs for the user
         const languageIds = await client.sMembers(`language_ids:${userId}`);
         if (languageIds.length === 0) {
-            return res.status(200).json([]); // Return an empty array if no languages exist
+            return res.status(200).json([]); // No languages found
         }
 
-        // Fetch all language pairs as JSON objects from Redis
         const languages = await Promise.all(languageIds.map(async (languageId) => {
-            // Fetch the JSON string stored in Redis for this languageId
             const languageData = await client.hGet(`languages:${userId}`, languageId);
+            if (!languageData) return { languageId, learningLanguage: null, translationLanguage: null };
 
-            // Log the fetched data
-            console.log(`Fetched data for languageId: ${languageId} -> ${languageData}`);
-
-            // Check if the data is valid before attempting to parse it
-            if (!languageData) {
-                console.error(`No data found for languageId: ${languageId}`);
-                return {
-                    languageId,
-                    learningLanguage: null,
-                    translationLanguage: null
-                };
-            }
-
-            // Try to parse the JSON string
-            let parsedData;
-            try {
-                parsedData = JSON.parse(languageData);
-            } catch (error) {
-                console.error(`Failed to parse JSON for languageId: ${languageId}`, error);
-                return {
-                    languageId,
-                    learningLanguage: null,
-                    translationLanguage: null
-                };
-            }
-
-            const { learningLanguage, translationLanguage } = parsedData || {};
-
-            return {
-                languageId,
-                learningLanguage: learningLanguage || null,
-                translationLanguage: translationLanguage || null
-            };
+            const { learningLanguage, translationLanguage } = JSON.parse(languageData) || {};
+            return { languageId, learningLanguage, translationLanguage };
         }));
 
         res.status(200).json(languages);
@@ -231,11 +180,73 @@ app.get('/languages/:userId', authenticate, async (req, res) => {
     }
 });
 
+// ------------------ DEFINITION ROUTES (PROTECTED) ------------------ //
 
+// Add a definition for a specific language (protected route)
+app.post('/languages/:userId/:languageId/definitions', authenticate, async (req, res) => {
+    const { userId, languageId } = req.params;
+    const { word, definition } = req.body;
 
+    if (!word || !definition) {
+        return res.status(400).json({ error: 'Word and definition are required.' });
+    }
 
+    try {
+        const definitionId = uuidv4();
 
-// Start server
+        const definitionData = JSON.stringify({ word, definition });
+
+        // Store the definition in Redis
+        await client.hSet(`definitions:${userId}:${languageId}`, definitionId, definitionData);
+
+        // Schedule reminders at 1 minute, 5 minutes, and 5 hours
+        scheduleReminders(userId, languageId, word, definition, definitionId);
+
+        res.status(201).json({ message: 'Definition added successfully' });
+    } catch (error) {
+        console.error('Error adding definition:', error.message);
+        res.status(500).json({ error: 'Failed to add definition.' });
+    }
+});
+
+// Function to schedule reminders
+function scheduleReminders(userId, languageId, word, definition, definitionId) {
+    cron.schedule('*/1 * * * *', () => sendReminder(userId, languageId, word, definition, definitionId, '1 minute'));
+    cron.schedule('*/5 * * * *', () => sendReminder(userId, languageId, word, definition, definitionId, '5 minutes'));
+    cron.schedule('0 */5 * * *', () => sendReminder(userId, languageId, word, definition, definitionId, '5 hours'));
+}
+
+// Function to send reminders
+function sendReminder(userId, languageId, word, definition, definitionId, interval) {
+    console.log(`Reminder for user ${userId} to review word "${word}" after ${interval}.`);
+    // Optionally, trigger a UI notification via WebSockets, polling, etc.
+}
+
+// Fetch all definitions for a specific language (protected route)
+app.get('/languages/:userId/:languageId/definitions', authenticate, async (req, res) => {
+    const { userId, languageId } = req.params;
+
+    try {
+        const definitionIds = await client.hKeys(`definitions:${userId}:${languageId}`);
+        if (definitionIds.length === 0) {
+            return res.status(200).json([]); // No definitions found
+        }
+
+        const definitions = await Promise.all(definitionIds.map(async (definitionId) => {
+            const definitionData = await client.hGet(`definitions:${userId}:${languageId}`, definitionId);
+            const { word, definition } = JSON.parse(definitionData);
+
+            return { definitionId, word, definition };
+        }));
+
+        res.status(200).json(definitions);
+    } catch (error) {
+        console.error('Error fetching definitions:', error.message);
+        res.status(500).json({ error: 'Failed to fetch definitions.' });
+    }
+});
+
+// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

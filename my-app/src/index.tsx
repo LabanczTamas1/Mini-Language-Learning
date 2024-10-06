@@ -4,13 +4,18 @@ import './index.css';
 import App from './App';
 import Login from './Login';
 import reportWebVitals from './reportWebVitals';
+import WebSocketComponent from './WebSocketComponent'; // Import the WebSocketComponent
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
+
+const userId = localStorage.getItem('userId');
+
 root.render(
   <React.StrictMode>
     <App />
+    <WebSocketComponent userId={userId} />
   </React.StrictMode>
 );
 
