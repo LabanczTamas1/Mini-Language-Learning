@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import Register from './Register';
 import Login from './Login';
@@ -7,118 +7,153 @@ import AddDefinition from './AddDefinition';
 import ReminderPopup from './ReminderPopup';
 
 const App: React.FC = () => {
-  const [isLogin, setIsLogin] = useState<boolean>(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [isLogin, setIsLogin] = useState<boolean>(true);
+    const [userId, setUserId] = useState<string | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // State to toggle between AddLanguage and AddDefinition
-  const [showAddLanguage, setShowAddLanguage] = useState<boolean>(true);
-  const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
+    // State to toggle between AddLanguage and AddDefinition
+    const [showAddLanguage, setShowAddLanguage] = useState<boolean>(true);
+    const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
 
-  // Popup state
-  const [showPopup, setShowPopup] = useState<boolean>(false);
-  const [currentWord, setCurrentWord] = useState<string>('exampleWord'); // Default word to define
+    const [currentWord, setCurrentWord] = useState('');
+    const [currentDefinition, setCurrentDefinition] = useState('');
+    const [showPopup, setShowPopup] = useState(false);
+    const [definitionId, setDefinitionId] = useState(''); // New state for definition ID
 
-  const handleRegisterSuccess = (id: string) => {
-    setUserId(id);
+    const handleRegisterSuccess = (id: string) => {
+        setUserId(id);
+    };
+
+    const handleLoginSuccess = (id: string, authToken: string, email: string) => {
+        setUserId(id);
+        setToken(authToken);
+        setUserEmail(email);
+        localStorage.setItem('authToken', authToken); // Store token in localStorage
+    };
+
+    // Handle logout
+    const handleLogout = () => {
+        setUserId(null);
+        setToken(null);
+        setUserEmail(null);
+        localStorage.removeItem('authToken'); // Clear the token from localStorage
+    };
+
+    // Handle navigation to AddDefinition page
+    const handleLanguageClick = (languageId: string) => {
+        setSelectedLanguageId(languageId);
+        setShowAddLanguage(false); // Hide AddLanguage when a language is clicked
+    };
+
+    // Handle going back to AddLanguage page
+    const handleBackClick = () => {
+        setShowAddLanguage(true); // Show AddLanguage
+        setSelectedLanguageId(null); // Reset selected language
+    };
+
+    const triggerPopup = (word: string, definition: string, id: string) => {
+      setCurrentWord(word);
+      setCurrentDefinition(definition);
+      setDefinitionId(id); // Set the definition ID for the popup
+      setShowPopup(true);
+      console.log("Reminder", id); // Log the ID to ensure it is correct
   };
+  
 
-  const handleLoginSuccess = (id: string, authToken: string, email: string) => {
-    setUserId(id);
-    setToken(authToken);
-    setUserEmail(email);
-    localStorage.setItem('authToken', authToken); // Store token in localStorage
-  };
+    const handlePopupSubmit = (definition: string) => {
+        console.log('Definition submitted:', definition);
+        // Additional logic can go here, if needed
+    };
 
-  // Handle logout
-  const handleLogout = () => {
-    setUserId(null);
-    setToken(null);
-    setUserEmail(null);
-    localStorage.removeItem('authToken'); // Clear the token from localStorage
-  };
+    useEffect(() => {
+        const ws = new WebSocket('ws://localhost:8080');
 
-  // Handle navigation to AddDefinition page
-  const handleLanguageClick = (languageId: string) => {
-    setSelectedLanguageId(languageId);
-    setShowAddLanguage(false); // Hide AddLanguage when a language is clicked
-  };
+        ws.onopen = () => {
+            console.log('WebSocket connection established');
+        };
 
-  // Handle going back to AddLanguage page
-  const handleBackClick = () => {
-    setShowAddLanguage(true); // Show AddLanguage
-    setSelectedLanguageId(null); // Reset selected language
-  };
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log("Received data:", data);
+          // Ensure data contains definitionId
+          if (data.definitionId) {
+              triggerPopup(data.word, data.definition, data.definitionId);
+          } else {
+              console.error('definitionId is missing in the received data:', data);
+          }
+      };
+      
 
-  // Show the popup
-  const triggerPopup = (word: string) => {
-    setCurrentWord(word);
-    setShowPopup(true);
-  };
+        ws.onclose = () => {
+            console.log('WebSocket connection closed');
+        };
 
-  // Handle submitting the definition from the popup
-  const handlePopupSubmit = (definition: string) => {
-    console.log('Definition submitted:', definition);
-    setShowPopup(false); // Close the popup
-  };
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
 
-  // Handle closing the popup
-  const handlePopupClose = () => {
-    setShowPopup(false);
-  };
+        return () => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+        };
+    }, []);
 
-  return (
-    <Router>
-      <div>
-        <h1>Language Learning App</h1>
+    return (
+        <Router>
+            <div>
+                <h1>Language Learning App</h1>
 
-        {!userId ? (
-          <div>
-            <h2>{isLogin ? 'Login' : 'Register'} to Continue</h2>
-            {isLogin ? (
-              <Login onLoginSuccess={handleLoginSuccess} />
-            ) : (
-              <Register onRegisterSuccess={handleRegisterSuccess} />
-            )}
-            <button onClick={() => setIsLogin(!isLogin)}>
-              {isLogin ? 'Switch to Register' : 'Switch to Login'}
-            </button>
-          </div>
-        ) : (
-          <div>
-            <h2>Welcome, {userEmail}!</h2>
-            <button onClick={handleLogout}>Logout</button> {/* Logout button */}
+                {!userId ? (
+                    <div>
+                        <h2>{isLogin ? 'Login' : 'Register'} to Continue</h2>
+                        {isLogin ? (
+                            <Login onLoginSuccess={handleLoginSuccess} />
+                        ) : (
+                            <Register onRegisterSuccess={handleRegisterSuccess} />
+                        )}
+                        <button onClick={() => setIsLogin(!isLogin)}>
+                            {isLogin ? 'Switch to Register' : 'Switch to Login'}
+                        </button>
+                    </div>
+                ) : (
+                    <div>
+                        <h2>Welcome, {userEmail}!</h2>
+                        <button onClick={handleLogout}>Logout</button> {/* Logout button */}
 
-            {/* Show AddLanguage or AddDefinition based on the state */}
-            {token && userId && showAddLanguage && (
-              <AddLanguage userId={userId} onLanguageClick={handleLanguageClick} />
-            )}
+                        {/* Show AddLanguage or AddDefinition based on the state */}
+                        {token && userId && showAddLanguage && (
+                            <AddLanguage userId={userId} onLanguageClick={handleLanguageClick} />
+                        )}
 
-            {/* Show AddDefinition only when a language is clicked */}
-            {token && userId && !showAddLanguage && selectedLanguageId && (
-              <div>
-                <button onClick={handleBackClick}>Back</button>
-                <AddDefinition languageId={selectedLanguageId} userId={userId} />
-              </div>
-            )}
+                        {/* Show AddDefinition only when a language is clicked */}
+                        {token && userId && !showAddLanguage && selectedLanguageId && (
+                            <div>
+                                <button onClick={handleBackClick}>Back</button>
+                                <AddDefinition languageId={selectedLanguageId} userId={userId} />
+                            </div>
+                        )}
 
-            {/* Example button to trigger the popup */}
-            <button onClick={() => triggerPopup('NewWord')}>Define a New Word</button>
-
-            {/* Render the ReminderPopup if showPopup is true */}
-            {showPopup && (
-              <ReminderPopup
-                word={currentWord}
-                onSubmit={handlePopupSubmit}
-                onClose={handlePopupClose}
-              />
-            )}
-          </div>
-        )}
-      </div>
-    </Router>
-  );
+                        {/* Render the ReminderPopup if showPopup is true */}
+                        {showPopup && (
+                            <div>
+                            <ReminderPopup
+                                languageId={selectedLanguageId ?? undefined} // Use optional chaining to handle null
+                                userId={userId}
+                                word={currentWord} // Pass the current word to the ReminderPopup
+                                correctDefinition={currentDefinition}
+                                definitionId={definitionId} // Pass the definition ID
+                                onSubmit={handlePopupSubmit}
+                                onClose={() => setShowPopup(false)} // Handle popup close here
+                            />
+                        </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Router>
+    );
 };
 
 export default App;

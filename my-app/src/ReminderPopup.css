@@ -49,4 +49,86 @@
   .popup-actions button:last-child:hover {
     background-color: #c82333;
   }
+
+
+  .reminder-popup {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 600px; /* Set desired width */
+    height: 200px; /* Set desired height */
+    padding: 20px;
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .reminder-header {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .reminder-header h2 {
+    margin: 0;
+  }
+  
+  .close-button {
+    position: absolute;
+    right: 10px;
+    top: 0;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  
+  .reminder-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+  }
+  
+  .reminder-content h3 {
+    margin: 10px 0;
+  }
+  
+  .reminder-content input {
+    padding: 5px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .feedback {
+    margin-top: 10px;
+    font-size: 16px;
+}
+
+.correct {
+    color: green;
+}
+
+.incorrect {
+    color: red;
+}
+
+.success-message {
+    color: green;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.error-message {
+    color: red;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+
   

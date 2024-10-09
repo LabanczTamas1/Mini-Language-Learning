@@ -14,11 +14,24 @@ const app = express();
 
 // Use CORS to allow requests from your frontend
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001'
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'], // List allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // List allowed headers
 }));
 
 // Use body parser to parse incoming JSON requests
 app.use(bodyParser.json());
+
+const WebSocket = require('ws');
+const wss = new WebSocket.Server({ port: 8080 });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+      console.log('received: %s', message);
+    });
+  });
+  
 
 // JWT secret key (set in environment variables for security)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
@@ -183,10 +196,13 @@ app.get('/languages/:userId', authenticate, async (req, res) => {
 // ------------------ DEFINITION ROUTES (PROTECTED) ------------------ //
 
 // Add a definition for a specific language (protected route)
+
+// Route to add a definition for a specific language (protected route)
 app.post('/languages/:userId/:languageId/definitions', authenticate, async (req, res) => {
     const { userId, languageId } = req.params;
-    const { word, definition } = req.body;
+    const { word, definition, reminderStatus3Seconds, reminderStatus1Minute, reminderStatus5Minutes, reminderStatus5Hours } = req.body;
 
+    // Validate required fields
     if (!word || !definition) {
         return res.status(400).json({ error: 'Word and definition are required.' });
     }
@@ -194,57 +210,155 @@ app.post('/languages/:userId/:languageId/definitions', authenticate, async (req,
     try {
         const definitionId = uuidv4();
 
-        const definitionData = JSON.stringify({ word, definition });
+        // Construct the definitionData without nesting reminder statuses
+        const definitionData = JSON.stringify({
+            definitionId, // Include the definitionId
+            word,
+            definition,
+            reminderStatus3Seconds, // Directly include reminder statuses
+            reminderStatus1Minute,
+            reminderStatus5Minutes,
+            reminderStatus5Hours
+        });
 
         // Store the definition in Redis
         await client.hSet(`definitions:${userId}:${languageId}`, definitionId, definitionData);
 
-        // Schedule reminders at 1 minute, 5 minutes, and 5 hours
+        // Schedule reminders if needed
         scheduleReminders(userId, languageId, word, definition, definitionId);
 
-        res.status(201).json({ message: 'Definition added successfully' });
+        return res.status(201).json({ message: 'Definition added successfully', definitionId }); // Return the definitionId
     } catch (error) {
         console.error('Error adding definition:', error.message);
-        res.status(500).json({ error: 'Failed to add definition.' });
+        return res.status(500).json({ error: 'Failed to add definition.' });
+    }
+});
+
+// Route to update reminder status for a specific definition
+app.patch('/languages/:userId/:languageId/definitions/:definitionId', authenticate, async (req, res) => {
+    console.log('PATCH request received:', req.params, req.body);
+
+    const { userId, languageId, definitionId } = req.params;
+    const { status, interval } = req.body;  // Expecting status and interval (e.g., '3_seconds', '1_minute')
+    console.log(`Reminder:`,status,interval);
+    // Validate input
+    if (!status || !interval) {
+        return res.status(400).json({ error: 'Status and interval are required.' });
+    }
+
+    try {
+        const definitionKey = `definitions:${userId}:${languageId}`;
+        const definitionData = await client.hGet(definitionKey, definitionId);
+
+        if (!definitionData) {
+            return res.status(404).json({ error: 'Definition not found.' });
+        }
+
+        // Parse existing definition data
+        const definition = JSON.parse(definitionData);
+
+        // Update the reminder status for the given interval
+        const reminderIntervals = ['reminderStatus3Seconds', 'reminderStatus1Minute', 'reminderStatus5Minutes', 'reminderStatus5Hours'];
+
+        // Determine which reminder status to update based on the interval
+        switch (interval) {
+            case '3_seconds':
+                definition.reminderStatus3Seconds = status;
+                break;
+            case '1_minute':
+                definition.reminderStatus1Minute = status;
+                break;
+            case '5_minutes':
+                definition.reminderStatus5Minutes = status;
+                break;
+            case '5_hours':
+                definition.reminderStatus5Hours = status;
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid interval provided.' });
+        }
+
+        // Save the updated definition data back to Redis
+        await client.hSet(definitionKey, definitionId, JSON.stringify(definition));
+
+        console.log(`Reminder status updated for user ${userId}, definition ${definitionId}, interval ${interval}, new status: ${status}`);
+
+        return res.status(200).json({ message: 'Status updated successfully' });
+    } catch (error) {
+        console.error('Error updating reminder status:', error.message);
+        return res.status(500).json({ error: 'Failed to update reminder status.' });
     }
 });
 
 // Function to schedule reminders
-function scheduleReminders(userId, languageId, word, definition, definitionId) {
-    cron.schedule('*/1 * * * *', () => sendReminder(userId, languageId, word, definition, definitionId, '1 minute'));
-    cron.schedule('*/5 * * * *', () => sendReminder(userId, languageId, word, definition, definitionId, '5 minutes'));
-    cron.schedule('0 */5 * * *', () => sendReminder(userId, languageId, word, definition, definitionId, '5 hours'));
+function scheduleReminders(userId, languageId, word, definition, definitionId) {    
+    // Send a reminder after 3 seconds
+    setTimeout(() => {
+        sendReminder(userId, languageId, word, definition, definitionId, '3 seconds');
+    }, 3000);
+
+    // Send a reminder after 1 minute
+    setTimeout(() => {
+        sendReminder(userId, languageId, word, definition, definitionId, '1 minute');
+    }, 60000); // 60 seconds
+
+    // Send a reminder after 5 minutes
+    setTimeout(() => {
+        sendReminder(userId, languageId, word, definition, definitionId, '5 minutes');
+    }, 300000); // 5 minutes in milliseconds
+
+    // Send a reminder after 5 hours
+    setTimeout(() => {
+        sendReminder(userId, languageId, word, definition, definitionId, '5 hours');
+    }, 18000000); // 5 hours in milliseconds
 }
 
 // Function to send reminders
 function sendReminder(userId, languageId, word, definition, definitionId, interval) {
-    console.log(`Reminder for user ${userId} to review word "${word}" after ${interval}.`);
-    // Optionally, trigger a UI notification via WebSockets, polling, etc.
+    console.log(`Reminder for user ${userId} to review word "${word}" - "${definition}" after ${interval}.`);
+    wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            // Include the definitionId in the message
+            client.send(JSON.stringify({ word, definition, definitionId }));
+        }
+    });
 }
 
-// Fetch all definitions for a specific language (protected route)
+// Route to fetch all definitions for a language
 app.get('/languages/:userId/:languageId/definitions', authenticate, async (req, res) => {
     const { userId, languageId } = req.params;
+    const { word } = req.query; // Capture the query parameter
 
     try {
         const definitionIds = await client.hKeys(`definitions:${userId}:${languageId}`);
+        
         if (definitionIds.length === 0) {
             return res.status(200).json([]); // No definitions found
         }
 
         const definitions = await Promise.all(definitionIds.map(async (definitionId) => {
             const definitionData = await client.hGet(`definitions:${userId}:${languageId}`, definitionId);
-            const { word, definition } = JSON.parse(definitionData);
+            const { word: defWord, definition, reminderStatus3Seconds, reminderStatus1Minute, reminderStatus5Minutes, reminderStatus5Hours } = JSON.parse(definitionData) || {};
 
-            return { definitionId, word, definition };
+            // Filter definitions by the word if provided
+            if (word && !defWord.toLowerCase().includes(word.toLowerCase())) {
+                return null; // Exclude if it doesn't match
+            }
+
+            return { definitionId, word: defWord, definition, reminderStatus3Seconds, reminderStatus1Minute, reminderStatus5Minutes, reminderStatus5Hours };
         }));
 
-        res.status(200).json(definitions);
+        // Filter out any null values from the definitions array
+        const filteredDefinitions = definitions.filter(def => def !== null);
+        
+        res.status(200).json(filteredDefinitions);
     } catch (error) {
         console.error('Error fetching definitions:', error.message);
         res.status(500).json({ error: 'Failed to fetch definitions.' });
     }
 });
+
+
 
 // Start the server
 const PORT = process.env.PORT || 3000;
