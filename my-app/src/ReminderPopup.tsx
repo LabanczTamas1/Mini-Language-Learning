@@ -49,7 +49,7 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({
             try {
                 await updateReminderStatus(userId, languageId, definitionId, updatedStatus, authToken);
                 onSubmit(definition);
-                setTimeout(onClose, 3000);
+                setTimeout(onClose, 2000);
             } catch (error) {
                 console.error('Error updating reminder status:', error);
                 setError('Failed to update reminder status. Please try again.');
@@ -94,27 +94,29 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({
     };
 
     return (
-        <div className="reminder-popup">
-            <div className="reminder-header">
-                <h2>What is the definition of this word?</h2>
-                <button className="close-button" onClick={onClose}>X</button>
-            </div>
-            <div className="reminder-content">
-                <h3>{word}</h3>
-                <input
-                    type="text"
-                    value={definition}
-                    onChange={(e) => setDefinition(e.target.value)}
-                    placeholder="Enter definition"
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            handleDefinitionSubmit();
-                        }
-                    }}
-                />
-                {isCorrect === true && <p className="success-message">Correct!</p>}
-                {isCorrect === false && <p className="error-message">Incorrect, the correct definition is: "{correctDefinition}"</p>}
-                {error && <p className="error-message">{error}</p>}
+        <div className="popup-overlay"> {/* Added overlay for centering */}
+            <div className="reminder-popup">
+                <div className="reminder-header">
+                    <h2>What is the definition of this word?</h2>
+                    <button className="close-button" onClick={onClose}>X</button>
+                </div>
+                <div className="reminder-content">
+                    <h3>{word}</h3>
+                    <input
+                        type="text"
+                        value={definition}
+                        onChange={(e) => setDefinition(e.target.value)}
+                        placeholder="Enter definition"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleDefinitionSubmit();
+                            }
+                        }}
+                    />
+                    {isCorrect === true && <p className="success-message">Correct!</p>}
+                    {isCorrect === false && <p className="error-message">Incorrect, the correct definition is: "{correctDefinition}"</p>}
+                    {error && <p className="error-message">{error}</p>}
+                </div>
             </div>
         </div>
     );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import './Login.css';
 
 interface RegisterProps {
   onRegisterSuccess: (userId: string) => void;
@@ -29,25 +30,37 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
   };
 
   return (
-    <form onSubmit={handleRegister}>
-      <h2>Register</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      <button type="submit">Register</button>
-    </form>
+    <div className="login-container"> {/* Use the same container class */}
+      <div className="login-card"> {/* Use the same card class */}
+        <h2>Register</h2>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        <form onSubmit={handleRegister}>
+          <div className="form-group">
+            <label>Email:</label>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="form-input" // Same input styling
+            />
+          </div>
+          <div className="form-group">
+            <label>Password:</label>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="form-input" // Same input styling
+            />
+          </div>
+          <button type="submit" className="btn-primary">Register</button> {/* Same button styling */}
+        </form>
+      </div>
+    </div>
   );
 };
 

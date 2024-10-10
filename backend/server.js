@@ -85,12 +85,17 @@ app.post('/register', async (req, res) => {
         // Store user details in Redis
         await client.hSet('users', email, JSON.stringify({ userId, hashedPassword }));
 
+        // Create an empty profile for the user upon registration
+        const profileData = { name: "", profilePicture: "", bio: "" };
+        await client.hSet(`userProfile:${userId}`, 'data', JSON.stringify(profileData));
+
         res.status(201).json({ userId });
     } catch (error) {
         console.error('Error during registration:', error.message);
         res.status(500).json({ error: 'Failed to register user.' });
     }
 });
+
 
 // User login route
 app.post('/login', async (req, res) => {
@@ -432,6 +437,54 @@ app.put('/languages/:userId/:languageId/definitions/:definitionId', authenticate
     } catch (error) {
         console.error('Error updating definition:', error.message);
         return res.status(500).json({ error: 'Failed to update definition.' });
+    }
+});
+
+
+// Add a new route to update or fetch user profile information
+
+// Route to create or update user profile
+// Route to create or update user profile
+app.put('/profile/:userId', authenticate, async (req, res) => {
+    const { userId } = req.params;
+    const { name, bio } = req.body; // Removed profilePicture from here
+
+    // Validate input
+    if (!name || !bio) {
+        return res.status(400).json({ error: 'Name and bio are required.' }); // Updated error message
+    }
+
+    try {
+        // Create or update the user's profile in Redis
+        const profileData = JSON.stringify({ name, bio }); // Excluded profilePicture from profileData
+
+        // Store the profile data in Redis under the key `userProfile:{userId}`
+        await client.hSet(`userProfile:${userId}`, 'data', profileData);
+
+        return res.status(200).json({ message: 'Profile updated successfully.' });
+    } catch (error) {
+        console.error('Error updating profile:', error.message);
+        return res.status(500).json({ error: 'Failed to update profile.' });
+    }
+});
+
+// Route to fetch user profile
+app.get('/profile/:userId', authenticate, async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Fetch profile data from Redis
+        const profileData = await client.hGet(`userProfile:${userId}`, 'data');
+        if (!profileData) {
+            return res.status(404).json({ error: 'Profile not found.' });
+        }
+
+        // Parse the profile data and send it in response
+        const profile = JSON.parse(profileData);
+        return res.status(200).json(profile);
+    } catch (error) {
+        console.error('Error fetching profile:', error.message);
+        return res.status(500).json({ error: 'Failed to fetch profile.' });
     }
 });
 

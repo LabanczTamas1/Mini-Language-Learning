@@ -19,10 +19,11 @@ interface Definition {
 
 interface AddDefinitionProps {
     languageId: string;
+    languageName: string | null; // Added languageName prop
     userId: string;
 }
 
-const AddDefinition: React.FC<AddDefinitionProps> = ({ languageId, userId }) => {
+const AddDefinition: React.FC<AddDefinitionProps> = ({ languageId, languageName, userId }) => {
     const [word, setWord] = useState<string>('');
     const [definition, setDefinition] = useState<string>('');
     const [definitions, setDefinitions] = useState<Definition[]>([]);
@@ -147,97 +148,90 @@ const AddDefinition: React.FC<AddDefinitionProps> = ({ languageId, userId }) => 
         }
     };
 
-    // AddDefinition.tsx
-
-// A többi kód változatlan marad...
-
     return (
-    <div style={{ padding: '20px' }}>
-        <h2>{editMode ? 'Edit Definition' : 'Add a Definition'} for Language {languageId}</h2>
+        <div style={{ padding: '20px' }}>
+            <h2>{editMode ? 'Edit Definition' : 'Add a Definition'} for Language {languageName}</h2> {/* Use languageName here */}
 
-        {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+            {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-        <TextField
-            label="Word"
-            variant="outlined"
-            value={word}
-            onChange={(e) => setWord(e.target.value)}
-            style={{ marginBottom: '10px', width: '300px' }}
-        />
-        <TextField
-            label="Definition"
-            variant="outlined"
-            value={definition}
-            onChange={(e) => setDefinition(e.target.value)}
-            style={{ marginBottom: '10px', width: '300px' }}
-        />
-        {editMode ? (
-            <Button variant="contained" color="primary" onClick={handleUpdateDefinition}>
-                Update Definition
-            </Button>
-        ) : (
-            <Button variant="contained" color="primary" onClick={handleAddDefinition}>
-                Add Definition
-            </Button>
-        )}
+            <TextField
+                label="Word"
+                variant="outlined"
+                value={word}
+                onChange={(e) => setWord(e.target.value)}
+                style={{ marginBottom: '10px', width: '300px' }}
+            />
+            <TextField
+                label="Definition"
+                variant="outlined"
+                value={definition}
+                onChange={(e) => setDefinition(e.target.value)}
+                style={{ marginBottom: '10px', width: '300px' }}
+            />
+            {editMode ? (
+                <Button variant="contained" className='f-button' color="primary" onClick={handleUpdateDefinition}>
+                    Update Definition
+                </Button>
+            ) : (
+                <Button variant="contained" className='f-button' color="primary" onClick={handleAddDefinition}>
+                    Add Definition
+                </Button>
+            )}
 
-        {loading ? (
-            <CircularProgress style={{ marginTop: '20px' }} />
-        ) : (
-            <div style={{ marginTop: '20px' }}>
-                <h3>Existing Definitions:</h3>
-                {definitions.length > 0 ? (
-                    <table className="definitions-table">
-                        <thead>
-                            <tr>
-                                <th>Word</th>
-                                <th style={{ borderRight: '2px solid black' }}>Definition</th>
-                                <th>3 Seconds</th>
-                                <th>1 Minute</th>
-                                <th>5 Minutes</th>
-                                <th>5 Hours</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-    {definitions.map((def) => (
-        <tr className="definition-row" key={def.definitionId}>
-            <td>{def.word}</td>
-            <td style={{ borderRight: '2px solid black' }}>{def.definition}</td>
-            <td style={{ backgroundColor: def.reminderStatus3Seconds === 'In progress' ? '#ffeb3b' : def.reminderStatus3Seconds === 'Achieved' ? '#c8e6c9' : def.reminderStatus3Seconds === 'Failed' ? '#ffcccb' : 'transparent' }}>
-                {def.reminderStatus3Seconds}
-            </td>
-            <td style={{ backgroundColor: def.reminderStatus1Minute === 'In progress' ? '#ffeb3b' : def.reminderStatus1Minute === 'Achieved' ? '#c8e6c9' : def.reminderStatus1Minute === 'Failed' ? '#ffcccb' : 'transparent' }}>
-                {def.reminderStatus1Minute}
-            </td>
-            <td style={{ backgroundColor: def.reminderStatus5Minutes === 'In progress' ? '#ffeb3b' : def.reminderStatus5Minutes === 'Achieved' ? '#c8e6c9' : def.reminderStatus5Minutes === 'Failed' ? '#ffcccb' : 'transparent' }}>
-                {def.reminderStatus5Minutes}
-            </td>
-            <td style={{ backgroundColor: def.reminderStatus5Hours === 'In progress' ? '#ffeb3b' : def.reminderStatus5Hours === 'Achieved' ? '#c8e6c9' : def.reminderStatus5Hours === 'Failed' ? '#ffcccb' : 'transparent' }}>
-                {def.reminderStatus5Hours}
-            </td>
-            <td>
-                <IconButton onClick={() => handleEditDefinition(def)} color="primary" aria-label="edit">
-                    <EditIcon />
-                </IconButton>
-                <IconButton onClick={() => handleDeleteDefinition(def.definitionId)} color="secondary" aria-label="delete">
-                    <DeleteIcon />
-                </IconButton>
-            </td>
-        </tr>
-    ))}
-</tbody>
-
-
-                    </table>
-                ) : (
-                    <p>No definitions found.</p>
-                )}
-            </div>
-        )}
-    </div>
-);
-
+            {loading ? (
+                <CircularProgress style={{ marginTop: '20px' }} />
+            ) : (
+                <div style={{ marginTop: '20px' }}>
+                    <h3>Existing Definitions:</h3>
+                    {definitions.length > 0 ? (
+                        <table className="definitions-table">
+                            <thead>
+                                <tr>
+                                    <th>Word</th>
+                                    <th style={{ borderRight: '2px solid black' }}>Definition</th>
+                                    <th>3 Seconds</th>
+                                    <th>1 Minute</th>
+                                    <th>5 Minutes</th>
+                                    <th>5 Hours</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {definitions.map((def) => (
+                                    <tr className="definition-row" key={def.definitionId}>
+                                        <td>{def.word}</td>
+                                        <td style={{ borderRight: '2px solid black' }}>{def.definition}</td>
+                                        <td style={{ backgroundColor: def.reminderStatus3Seconds === 'In progress' ? '#ffeb3b' : def.reminderStatus3Seconds === 'Achieved' ? '#c8e6c9' : def.reminderStatus3Seconds === 'Failed' ? '#ffcccb' : 'transparent' }}>
+                                            {def.reminderStatus3Seconds}
+                                        </td>
+                                        <td style={{ backgroundColor: def.reminderStatus1Minute === 'In progress' ? '#ffeb3b' : def.reminderStatus1Minute === 'Achieved' ? '#c8e6c9' : def.reminderStatus1Minute === 'Failed' ? '#ffcccb' : 'transparent' }}>
+                                            {def.reminderStatus1Minute}
+                                        </td>
+                                        <td style={{ backgroundColor: def.reminderStatus5Minutes === 'In progress' ? '#ffeb3b' : def.reminderStatus5Minutes === 'Achieved' ? '#c8e6c9' : def.reminderStatus5Minutes === 'Failed' ? '#ffcccb' : 'transparent' }}>
+                                            {def.reminderStatus5Minutes}
+                                        </td>
+                                        <td style={{ backgroundColor: def.reminderStatus5Hours === 'In progress' ? '#ffeb3b' : def.reminderStatus5Hours === 'Achieved' ? '#c8e6c9' : def.reminderStatus5Hours === 'Failed' ? '#ffcccb' : 'transparent' }}>
+                                            {def.reminderStatus5Hours}
+                                        </td>
+                                        <td>
+                                            <IconButton onClick={() => handleEditDefinition(def)} color="primary" aria-label="edit">
+                                                <EditIcon />
+                                            </IconButton>
+                                            <IconButton onClick={() => handleDeleteDefinition(def.definitionId)} color="secondary" aria-label="delete">
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <p>No definitions found.</p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
 };
 
 export default AddDefinition;

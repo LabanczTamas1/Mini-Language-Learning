@@ -1,134 +1,76 @@
 /* Dark background that covers the entire screen */
 .popup-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000; /* Ensure it appears on top of other content */
-  }
-  
-  /* The popup box itself */
-  .popup-content {
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 400px; /* Adjust width as needed */
-    max-width: 90%;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
-  }
-  
-  .popup-actions {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 10px;
-  }
-  
-  .popup-actions button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    background-color: #007bff;
-    color: white;
-    transition: background-color 0.3s;
-  }
-  
-  .popup-actions button:hover {
-    background-color: #0056b3;
-  }
-  
-  .popup-actions button:last-child {
-    background-color: #dc3545;
-  }
-  
-  .popup-actions button:last-child:hover {
-    background-color: #c82333;
-  }
-
-
-  .reminder-popup {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    width: 600px; /* Set desired width */
-    height: 200px; /* Set desired height */
-    padding: 20px;
-    background-color: white;
-    border: 1px solid #ccc;
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-  }
-  
-  .reminder-header {
-    position: relative;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  .reminder-header h2 {
-    margin: 0;
-  }
-  
-  .close-button {
-    position: absolute;
-    right: 10px;
-    top: 0;
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-  }
-  
-  .reminder-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    margin-top: 20px;
-  }
-  
-  .reminder-content h3 {
-    margin: 10px 0;
-  }
-  
-  .reminder-content input {
-    padding: 5px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .feedback {
-    margin-top: 10px;
-    font-size: 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensure it appears on top of other content */
 }
 
-.correct {
-    color: green;
+/* The popup box itself */
+.reminder-popup {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 400px; /* Set desired width */
+  padding: 20px;
+  background-color: white; /* Background color of the popup */
+  border-radius: 8px; /* Rounded corners */
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  z-index: 1001; /* Ensure it appears above the overlay */
 }
 
-.incorrect {
-    color: red;
+/* Header styles */
+.reminder-header {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: space-between; /* Aligns the title and close button */
+  align-items: center;
+}
+
+/* Close button styles */
+.close-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #333; /* Change the close button color to a darker shade */
+}
+
+.reminder-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.reminder-content h3 {
+  margin: 10px 0;
+}
+
+.reminder-content input {
+  padding: 5px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .success-message {
-    color: green;
-    font-weight: bold;
-    margin-top: 10px;
+  color: green;
+  font-weight: bold;
+  margin-top: 10px;
 }
 
 .error-message {
-    color: red;
-    font-weight: bold;
-    margin-top: 10px;
+  color: red;
+  font-weight: bold;
+  margin-top: 10px;
 }
-
-
-  

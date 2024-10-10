@@ -27,4 +27,8 @@
     height: 50px; /* A cellák magassága */
 }
 
+.f-button{
+    margin-top: 10px !important;
+    margin-left: 5px !important;
+}
 
