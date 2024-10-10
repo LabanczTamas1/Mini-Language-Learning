@@ -2,20 +2,18 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-import Login from './Login';
 import reportWebVitals from './reportWebVitals';
-import WebSocketComponent from './WebSocketComponent'; // Import the WebSocketComponent
+import { BrowserRouter } from 'react-router-dom'; // Import BrowserRouter
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 
-const userId = localStorage.getItem('userId');
-
 root.render(
   <React.StrictMode>
-    <App />
-    <WebSocketComponent userId={userId} />
+    <BrowserRouter> {/* Wrap your app with BrowserRouter to enable routing */}
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );
 

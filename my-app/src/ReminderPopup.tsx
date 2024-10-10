@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import './ReminderPopup.css'; // CSS for styling
 
 interface ReminderPopupProps {
-    languageId?: string; // Optional languageId
+    languageId?: string;
     userId: string;
     word: string;
     correctDefinition: string;
     definitionId: string;
+    interval: string; // Add interval prop
     onSubmit: (definition: string) => void;
     onClose: () => void;
 }
@@ -17,45 +18,37 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({
     word,
     correctDefinition,
     definitionId,
+    interval, // Receive interval prop
     onSubmit,
     onClose,
 }) => {
     const [definition, setDefinition] = useState<string>(''); // User's definition input
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null); // Tracks correctness of user's input
     const [error, setError] = useState<string | null>(null); // Error message state
-    const [interval, setInterval] = useState<string>('3_seconds'); // Interval state (e.g., 3_seconds)
-
-    // Fetch the auth token from local storage or any other source
     const [authToken, setAuthToken] = useState<string | null>(null);
-    
+
     useEffect(() => {
-        const token = localStorage.getItem('authToken'); // Adjust this to your auth method
-        setAuthToken(token); // Set the auth token state
+        const token = localStorage.getItem('authToken');
+        setAuthToken(token); 
     }, []);
 
     const handleDefinitionSubmit = async () => {
         const userInput = definition.trim().toLowerCase();
         const correctInput = correctDefinition.trim().toLowerCase();
 
-        let updatedStatus: { status: string; interval: string } = { status: 'Failed', interval }; // Default status
+        let updatedStatus = { status: 'Failed', interval }; // Include interval in status
 
         if (userInput === correctInput) {
             setIsCorrect(true);
-            updatedStatus.status = 'Achieved'; // Status is updated to "Achieved" if correct
+            updatedStatus.status = 'Achieved'; // Update status if correct
         } else {
             setIsCorrect(false);
         }
 
-        // Check if authToken is available before calling updateReminderStatus
         if (authToken) {
             try {
-                // Update the reminder status on the server
                 await updateReminderStatus(userId, languageId, definitionId, updatedStatus, authToken);
-                
-                // Submit the definition and close the popup
                 onSubmit(definition);
-                
-                // Close the popup after a 3-second delay
                 setTimeout(onClose, 3000);
             } catch (error) {
                 console.error('Error updating reminder status:', error);
@@ -66,30 +59,27 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({
         }
     };
 
-    // Function to update reminder status (with proper TypeScript types)
     const updateReminderStatus = async (
         userId: string,
-        languageId: string | undefined, // Handle optional languageId
+        languageId: string | undefined,
         definitionId: string,
-        updatedStatus: { status: string; interval: string }, // Include interval
-        authToken: string // Add authToken as a parameter
+        updatedStatus: { status: string; interval: string },
+        authToken: string
     ) => {
         try {
             if (!languageId) {
                 throw new Error('Language ID is required.');
             }
 
-            // Construct the full URL using window.location.origin
             const response = await fetch(`http://localhost:3000/languages/${userId}/${languageId}/definitions/${definitionId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}` // Include the token in headers
+                    'Authorization': `Bearer ${authToken}`
                 },
-                body: JSON.stringify(updatedStatus), // Send both status and interval
+                body: JSON.stringify(updatedStatus),
             });
 
-            // Check if the response is ok
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to update reminder status.');
@@ -122,7 +112,6 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({
                         }
                     }}
                 />
-                {/* Display feedback */}
                 {isCorrect === true && <p className="success-message">Correct!</p>}
                 {isCorrect === false && <p className="error-message">Incorrect, the correct definition is: "{correctDefinition}"</p>}
                 {error && <p className="error-message">{error}</p>}

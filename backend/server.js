@@ -15,7 +15,7 @@ const app = express();
 // Use CORS to allow requests from your frontend
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'], // List allowed methods
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // List allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'], // List allowed headers
 }));
 
@@ -294,22 +294,22 @@ app.patch('/languages/:userId/:languageId/definitions/:definitionId', authentica
 function scheduleReminders(userId, languageId, word, definition, definitionId) {    
     // Send a reminder after 3 seconds
     setTimeout(() => {
-        sendReminder(userId, languageId, word, definition, definitionId, '3 seconds');
+        sendReminder(userId, languageId, word, definition, definitionId, '3_seconds');
     }, 3000);
 
     // Send a reminder after 1 minute
     setTimeout(() => {
-        sendReminder(userId, languageId, word, definition, definitionId, '1 minute');
+        sendReminder(userId, languageId, word, definition, definitionId, '1_minute');
     }, 60000); // 60 seconds
 
     // Send a reminder after 5 minutes
     setTimeout(() => {
-        sendReminder(userId, languageId, word, definition, definitionId, '5 minutes');
+        sendReminder(userId, languageId, word, definition, definitionId, '5_minutes');
     }, 300000); // 5 minutes in milliseconds
 
     // Send a reminder after 5 hours
     setTimeout(() => {
-        sendReminder(userId, languageId, word, definition, definitionId, '5 hours');
+        sendReminder(userId, languageId, word, definition, definitionId, '5_hours');
     }, 18000000); // 5 hours in milliseconds
 }
 
@@ -319,7 +319,7 @@ function sendReminder(userId, languageId, word, definition, definitionId, interv
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
             // Include the definitionId in the message
-            client.send(JSON.stringify({ word, definition, definitionId }));
+            client.send(JSON.stringify({ word, definition, definitionId, interval }));
         }
     });
 }
@@ -357,6 +357,85 @@ app.get('/languages/:userId/:languageId/definitions', authenticate, async (req, 
         res.status(500).json({ error: 'Failed to fetch definitions.' });
     }
 });
+
+// Route to delete a specific definition
+app.delete('/languages/:userId/:languageId/definitions/:definitionId', authenticate, async (req, res) => {
+    const { userId, languageId, definitionId } = req.params;
+
+    try {
+        const definitionKey = `definitions:${userId}:${languageId}`;
+        const definitionExists = await client.hExists(definitionKey, definitionId);
+
+        if (!definitionExists) {
+            return res.status(404).json({ error: 'Definition not found.' });
+        }
+
+        // Remove the definition from Redis
+        await client.hDel(definitionKey, definitionId);
+
+        return res.status(200).json({ message: 'Definition deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting definition:', error.message);
+        return res.status(500).json({ error: 'Failed to delete definition.' });
+    }
+});
+
+// Route to update a specific definition (word or definition)
+app.put('/languages/:userId/:languageId/definitions/:definitionId', authenticate, async (req, res) => {
+    const { userId, languageId, definitionId } = req.params;
+    const { word, definition, status, interval } = req.body;
+
+    // Validate the input for word and definition
+    if (!word || !definition) {
+        return res.status(400).json({ error: 'Word and definition are required.' });
+    }
+
+    // Set default values for status and interval if they are not provided
+    const defaultStatus = status || 'In progress'; // Default to 'In progress'
+    const defaultInterval = interval || '3_seconds'; // Default to '3_seconds'
+
+    try {
+        const definitionKey = `definitions:${userId}:${languageId}`;
+        const definitionData = await client.hGet(definitionKey, definitionId);
+
+        if (!definitionData) {
+            return res.status(404).json({ error: 'Definition not found.' });
+        }
+
+        // Parse the current definition and update the word/definition fields
+        const existingDefinition = JSON.parse(definitionData);
+        existingDefinition.word = word;
+        existingDefinition.definition = definition;
+
+        // Update the reminder status based on the provided or default interval
+        switch (defaultInterval) {
+            case '3_seconds':
+                existingDefinition.reminderStatus3Seconds = defaultStatus;
+                break;
+            case '1_minute':
+                existingDefinition.reminderStatus1Minute = defaultStatus;
+                break;
+            case '5_minutes':
+                existingDefinition.reminderStatus5Minutes = defaultStatus;
+                break;
+            case '5_hours':
+                existingDefinition.reminderStatus5Hours = defaultStatus;
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid interval provided.' });
+        }
+
+        // Save the updated definition back to Redis
+        await client.hSet(definitionKey, definitionId, JSON.stringify(existingDefinition));
+
+        return res.status(200).json({ message: 'Definition updated successfully.' });
+    } catch (error) {
+        console.error('Error updating definition:', error.message);
+        return res.status(500).json({ error: 'Failed to update definition.' });
+    }
+});
+
+
 
 
 

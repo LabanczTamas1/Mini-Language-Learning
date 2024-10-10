@@ -1,0 +1,30 @@
+.t-button{
+    margin-top: 10px;
+    margin-left:5px;
+}
+
+
+
+.definitions-table {
+    width: 100%; /* A táblázat teljes szélessége */
+    border-collapse: collapse; /* Határok összeolvadása */
+}
+
+.definitions-table th,
+.definitions-table td {
+    text-align: left; /* Szöveg igazítása balra */
+    border: 1px solid #ddd; /* Határ a cellák között */
+    padding: 8px; /* Térköz a cellákban */
+    width: 14.28%; /* Minden oszlop egyenlő szélessége */
+}
+
+.definitions-table th {
+    background-color: #f2f2f2; /* Fejléc háttérszíne */
+}
+
+/* Opcióként a td-k és th-k magasságának beállítása is hasznos lehet */
+.definitions-table td, .definitions-table th {
+    height: 50px; /* A cellák magassága */
+}
+
+

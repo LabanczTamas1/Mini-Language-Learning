@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './Login.css';
 
 interface LoginProps {
   onLoginSuccess: (userId: string, token: string, email: string) => void;
@@ -13,7 +14,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
     // Simulating an API request for login
     try {
-      // Replace this with your actual login API call
       const response = await fetch('http://localhost:3000/login', {
         method: 'POST',
         headers: {
@@ -36,27 +36,34 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label>Email:</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+    <div className="login-container">
+      <div className="login-card">
+        <h2>Login</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Email:</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Password:</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="form-input"
+            />
+          </div>
+          <button type="submit" className="btn-primary">Login</button>
+        </form>
       </div>
-      <div>
-        <label>Password:</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
-      <button type="submit">Login</button>
-    </form>
+    </div>
   );
 };
 
